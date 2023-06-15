@@ -53,7 +53,7 @@ fn main() {
         .parse::<usize>()
         .unwrap();
 
-    println!("number of pages: {pagenum}, pagesize: {pagesize}");
+    println!("number of pages: {pagenum}, page size: {pagesize}");
 
     //add blank pages.
     println!("adding blank pages");
@@ -83,8 +83,8 @@ fn main() {
         .output()
         .unwrap();
 
-    println!("reordering pages");
     //reorder pages
+    println!("reordering pages");
     let mut doc = Document::load("stage1.pdf").unwrap();
 
     for start in (0..(pagenum + args.pad_start + pad_end)).step_by(stack_size) {
@@ -106,7 +106,6 @@ fn main() {
             doc.set_object(pagerefs[3 + 4 * i], pages[stack_size - 2 - 2 * i].clone());
         }
     }
-    println!("saving");
     doc.save("stage2.pdf").unwrap();
 
     //put pairs of pages side by side
