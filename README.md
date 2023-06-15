@@ -6,9 +6,9 @@ stitch the folded halves together to create the inside of a book.
 
 Essentially, if you have pages:
 ```
-[__][__][__][__][__][__]
-[__][__][__][__][__][__] ...
-[_1][_2][_3][_4][_5][_6]
+[--][--][--][--][--][--]
+[--][--][--][--][--][--] ...
+[-1][-2][-3][-4][-5][-6]
 ```
 And you want stacks of size two, it creates the pages:
 ```
@@ -43,6 +43,8 @@ folded in half:
 
 While printing, you should print two sided, flipping on the short edge.
 
+Note that the last signature will not be any smaller, so you might end up
+with a lot of blank pages at the end.
 
 The command-line options can be viewed using the `--help` flag. If running using
 cargo run, make sure to put all options after a `--`:
