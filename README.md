@@ -1,7 +1,7 @@
 I wrote this short program in order to print a personal copy of EGA.
 
 It takes a normal pdf, and puts two pages per side (four per piece of paper) so
-you can arrange them stack them up in 'signatures', fold each in half, and then
+you can stack them up in 'signatures', fold each in half, and then
 stitch the folded halves together to create the inside of a book.
 
 Essentially, if you have pages:
