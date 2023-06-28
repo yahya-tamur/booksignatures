@@ -29,7 +29,7 @@ And you want signatures with two pages each, the program creates this pdf:
 [----] [----] [----] [----] [----] ...
 [-8-1] [-2-7] [-6-3] [-4-5] [15-9]
 ```
-So the first signature looks like this from the side before being folded:
+So the first signature looks like this from the side, before being folded:
 ```
  8   1 
 ------
@@ -38,7 +38,7 @@ So the first signature looks like this from the side before being folded:
 ------
 5   4
 ```
-after being folded:
+After being folded:
 ```
        1
   ------
@@ -69,5 +69,5 @@ cargo run -- --help
 cargo run -- input.pdf output.pdf --signatures 4 --pad-start 2 --clean
 ```
 The program uses several different command-line utilities as well as a rust
-library. If you get errors, you not have some of the utilities. I only tested on
+library. If you get errors, you might not have some of the utilities. I only tested on
 linux.
