@@ -1,3 +1,13 @@
+Update 2026:
+
+I needed to use this again after a while. I had to update a few packages, but it
+still works. You need the following packages (on Ubuntu):
+
+`sudo apt install pdftk-java imagemagick texlive-extra-utils`
+
+--
+
+
 I wrote this short program in order to print a personal copy of EGA. Here's how it turned out:
 
 ![](ega-images/1.jpg) | ![](ega-images/2.jpg)
