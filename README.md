@@ -1,3 +1,7 @@
+Consider using this instead:
+
+[https://momijizukamori.github.io/bookbinder-js/](https://momijizukamori.github.io/bookbinder-js/)
+
 Update 2026:
 
 I needed to use this again after a while. I had to update a few packages, but it
