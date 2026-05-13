@@ -4,44 +4,28 @@ Consider using this one:
 [https://momijizukamori.github.io/bookbinder-js/](https://momijizukamori.github.io/bookbinder-js/)
 
 
-This program is creates signatures to prepare to print a pdf to create sewn book.
+This program creates signatures to prepare to print a pdf to create sewn book.
 This process is described in the next section.
 
 It can adjust margins before and after converting to signatures. Unlike some other
-programs, all margins are offsets from the borders of the inputs, not the content, 
+programs, all margins are offsets from the border, not the content, 
 and can be positive or negative. The units are some combination of bp and pt. The
 difference might not matter (1bp = 1.00374pt).
 
+All pages of the input should be the same size.
+
 On Ubuntu, the following packages are required. I have not tested on other
-distributions or operating systems..
+distributions or operating systems.
 
 `sudo apt install pdftk-java imagemagick texlive-extra-utils`
 
+------
 
 
---
+In order to create a sewn book, you need to make stacks of double pages,
+fold them in half together, and sew these 'signatures' together.
 
-
-I wrote this short program in order to print a personal copy of EGA. Here's how it turned out:
-
-![](ega-images/1.jpg) | ![](ega-images/2.jpg)
-|---|----|
-![](ega-images/3.jpg) | ![](ega-images/4.jpg)
-
-There are a few issues -- you can see the bottom stitch got cut off when I was
-trimming the edges. The cover's pretty messy. The thread I used to stitch was
-too thick, so the stitched side is thicker than the stack of pages, which leads
-to more issues. The scan by Numdam has a few pages off center, so some margins
-are very close to the edge of the paper. My second attempt with Ravi Vakil's
-Rising Sea algebraic geometry notes (parts I and II) turned out better. I'm
-hoping both books will hold up well over time.
-
-The program itself takes a normal pdf, reorders the pages, and puts two per
-side (four per piece of paper) so that you can stack them up in 'signatures',
-fold each signature in in half, and then stitch the signatures together to
-create the inside of a book.
-
-Essentially, if you the following pdf,
+If you the following pdf,
 ```
 [--] [--] [--] [--] [--] [--]
 [--] [--] [--] [--] [--] [--] ...
@@ -58,6 +42,7 @@ So the first signature looks like this from the side, before being folded:
  8   1 
 ------
 7   2
+
  6   3
 ------
 5   4
@@ -78,20 +63,22 @@ After being folded:
     8
 ```
 
-You will have to pay attention to flipping on the long edge vs. the short edge
-while printing.
+You may have to flip on the long edge or the short edge while printing.
 
-Also, the last signature will not have fewer pages, so you might end up
-with a lot of blank pages at the end.
+There will be empty pages at the end calculated based on the number of empty pages
+in the beginning and the number of pages per signature. Consider adjusting
+the number of pages per signature to avoid having a lot of blank pages at the end.
 
-The command-line options can be viewed using the `--help` flag. If running using
-`cargo run`, make sure to put the options for the program after a `--`:
+The command-line options can be viewed using the `--help` flag.
 ```
 cargo run -- --help
 ```
+
+Since you may have to adjust the options a few times, I recommend editing the
+included python file and running that.
+
+https://github.com/yahya-tamur/booksignatures/blob/main/run.py#
+
+```bash
+python3 ./run.py
 ```
-cargo run -- input.pdf output.pdf --signatures 4 --pad-start 2 --clean
-```
-The program uses several different command-line utilities as well as a rust
-library. If you get errors, you might not have some of the utilities. I only tested on
-linux.
