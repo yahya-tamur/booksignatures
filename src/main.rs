@@ -4,32 +4,32 @@ use pdfcrop::{crop_pdf, BoundingBox, CropOptions, Margins};
 use regex::Regex;
 use std::process::Command;
 
-///Arranges pages of a pdf to print in signatures
+/// Arranges pages of a pdf to print in signatures
 #[derive(Parser, Debug)]
 #[command( about, long_about = None)]
 struct Args {
     input: String,
     output: String,
 
-    // top, bottom, left, right margin adjustment (positive or negative)
-    // before combining pages.
-    #[arg(long, default_values_t = vec![0., 0., 0., 0.], value_delimiter = ' ', num_args = 4, allow_hyphen_values=true)]
+    /// top, bottom, left, right margin adjustment (positive or negative)
+    /// before combining pages.
+    #[arg(short, long, default_values_t = vec![0., 0., 0., 0.], value_delimiter = ' ', num_args = 4, allow_hyphen_values=true)]
     margin_pre: Vec<f64>,
 
-    // top, bottom, left, right margin adjustment (positive or negative)
-    // after combining pages.
+    /// top, bottom, left, right margin adjustment (positive or negative)
+    /// after combining pages.
     #[arg(long, default_values_t = vec![0., 0., 0., 0.], value_delimiter = ' ', num_args = 4, allow_hyphen_values=true)]
     margin_post: Vec<f64>,
 
-    ///number of pages in a stack you want to fold in half.
+    /// number of pages per signature.
     #[arg(short, long, default_value_t = 3)]
     signatures: usize,
 
-    ///number of blank pages to add to the start
+    /// number of blank pages at the start
     #[arg(short, long, default_value_t = 2)]
     pad_start: usize,
 
-    ///remove intermediate files at the end
+    /// remove intermediate files at the end
     #[arg(short, long, default_value_t = false)]
     clean: bool,
 }
