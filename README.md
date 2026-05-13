@@ -1,13 +1,23 @@
-Consider using this instead:
+There are many other pdf editing programs with the capability of creating signatures.
+Consider using this one:
 
 [https://momijizukamori.github.io/bookbinder-js/](https://momijizukamori.github.io/bookbinder-js/)
 
-Update 2026:
 
-I needed to use this again after a while. I had to update a few packages, but it
-still works. You need the following packages (on Ubuntu):
+This program is creates signatures to prepare to print a pdf to create sewn book.
+This process is described in the next section.
+
+It can adjust margins before and after converting to signatures. Unlike some other
+programs, all margins are offsets from the borders of the inputs, not the content, 
+and can be positive or negative. The units are some combination of bp and pt. The
+difference might not matter (1bp = 1.00374pt).
+
+On Ubuntu, the following packages are required. I have not tested on other
+distributions or operating systems..
 
 `sudo apt install pdftk-java imagemagick texlive-extra-utils`
+
+
 
 --
 
