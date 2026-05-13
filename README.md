@@ -77,7 +77,7 @@ cargo run -- --help
 Since you may have to adjust the options a few times, I recommend editing the
 included python file and running that.
 
-https://github.com/yahya-tamur/booksignatures/blob/main/run.py#
+https://github.com/yahya-tamur/booksignatures/blob/6eb27bb90d5ce31037fb2e12490f70f012d351ca/run.py#L1-L11
 
 ```bash
 python3 ./run.py
