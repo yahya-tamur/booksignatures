@@ -135,8 +135,13 @@ def main():
             # Inner edge is on the left for right-hand pages, on the right for left-hand ones.
             l_trim, r_trim = (inner, outer_trim) if recto else (outer_trim, inner)
             clip = pymupdf.Rect(r.x0 + l_trim, r.y0 + t, r.x1 - r_trim, r.y1 - b)
-            target = pymupdf.Rect(x0, y0, x0 + sw, y0 + sh)
-            sheet.show_pdf_page(target, src, pno, clip=clip, keep_proportion=True)
+            # A negative trim reaches past the page. show_pdf_page cuts the clip
+            # back to the page and would centre the rest, so shrink the target
+            # by the same amount to keep the page where it belongs.
+            inside = clip & r
+            target = pymupdf.Rect(x0 + (inside.x0 - clip.x0) * scale, y0 + (inside.y0 - clip.y0) * scale,
+                                  x0 + sw - (clip.x1 - inside.x1) * scale, y0 + sh - (clip.y1 - inside.y1) * scale)
+            sheet.show_pdf_page(target, src, pno, clip=inside, keep_proportion=True)
 
     out.save(args.output, garbage=3, deflate=True)
     print(f"wrote {args.output}: {len(out)} pages")
