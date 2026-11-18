@@ -86,7 +86,7 @@
 
   <section>
     <h2>Margins</h2>
-    <p class="muted">Space around each page on the sheet. Gutter is at the fold.</p>
+    <p class="muted">Space around each page. Gutter is at the fold. Pages are scaled to fit, so one direction usually has space left over, added evenly to its two margins.</p>
     <div class="grid2">
       <label>Gutter<input type="number" step="any" data-len id="gutter" value="18"></label>
       <label>Outer<input type="number" step="any" data-len id="outer" value="18"></label>
@@ -98,11 +98,16 @@
   <section>
     <h2>Cut after binding</h2>
     <p class="muted">Paper cut off the finished text block, for a smaller book. Margins are measured from the cut. The red outline in the preview shows what's left; it isn't in the download.</p>
-    <div class="grid3">
-      <label>Top<input type="number" step="any" data-len id="cut-top" value="0"></label>
-      <label>Bottom<input type="number" step="any" data-len id="cut-bottom" value="0"></label>
+    <div class="grid2">
+      <label>Top and bottom (each)<input type="number" step="any" data-len id="cut-tb" value="0"></label>
       <label>Outer<input type="number" step="any" data-len id="cut-outer" value="0"></label>
     </div>
+    <p class="muted">These buttons cut off the leftover space, so the finished pages have exactly the margins above.</p>
+    <div class="btns">
+      <button class="secondary" id="fit-outer" disabled>Set outer from top and bottom</button>
+      <button class="secondary" id="fit-tb" disabled>Set top and bottom from outer</button>
+    </div>
+    <p id="balance-note" class="muted" hidden></p>
     <p id="final" class="final"></p>
     <p id="layout" class="muted"></p>
   </section>

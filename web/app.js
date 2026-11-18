@@ -51,7 +51,7 @@ function settings() {
     trim: { t: len("trim-top"), b: len("trim-bottom"), i: len("trim-inner"), o: len("trim-outer") },
     paper: $("paper").value, paperW: len("paper-w"), paperH: len("paper-h"),
     gutter: len("gutter"), outer: len("outer"), top: len("top"), bottom: len("bottom"),
-    cutTop: len("cut-top"), cutBottom: len("cut-bottom"), cutOuter: len("cut-outer"),
+    cutTop: len("cut-tb"), cutBottom: len("cut-tb"), cutOuter: len("cut-outer"),
     extend: $("extend").checked, outline: true,
     ...sig,
   };
@@ -170,6 +170,8 @@ function schedule() {
 
 async function update() {
   $("custom-size").hidden = $("paper").value !== "custom";
+  const canBalance = !!src && $("paper").value !== "fit";
+  $("fit-outer").disabled = $("fit-tb").disabled = !canBalance;
   showSignatures();
   if (!src) return;
   const id = ++runId;
@@ -269,6 +271,32 @@ for (const input of document.querySelectorAll("#settings input[type=number]")) {
   };
   box.append(btn(-1, "−", "Less"), input, btn(1, "+", "More"));
 }
+
+// ---------- margin buttons ----------
+
+function balance(keep) {
+  if (!src) return;
+  const r = C.balanceCut(...C.commonSize(src.doc), settings(), keep);
+  const note = $("balance-note");
+  note.hidden = true;
+  if (!r) {
+    note.textContent = "The margins and the other cut leave no room for the page.";
+    note.hidden = false;
+    return;
+  }
+  const [key, v] = Object.entries(r)[0];
+  const id = key === "cutOuter" ? "cut-outer" : "cut-tb";
+  $(id).value = show(Math.max(0, v));
+  if (v < 0) {
+    note.textContent = key === "cutOuter"
+      ? "No outer cut needed: the width is what limits the page. Try setting top and bottom from outer."
+      : "No top and bottom cut needed: the height is what limits the page. Try setting outer from top and bottom.";
+    note.hidden = false;
+  }
+  schedule();
+}
+$("fit-outer").addEventListener("click", () => balance("tb"));
+$("fit-tb").addEventListener("click", () => balance("outer"));
 
 // ---------- events ----------
 

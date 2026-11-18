@@ -117,6 +117,25 @@
     };
   }
 
+  // Cuts that remove exactly the leftover space, so the finished page has the
+  // margins as given. keep "tb": the top/bottom cut stays; returns the outer
+  // cut. keep "outer": the outer cut stays; returns the top (= bottom) cut.
+  // Negative means the page doesn't fit that way. null with "Pages at 100%".
+  function balanceCut(pw, ph, st, keep) {
+    if (st.paper === "fit") return null;
+    const [W, H] = st.paper === "custom" ? [st.paperW, st.paperH] : PAPERS[st.paper];
+    const { t, b, i, o } = st.trim;
+    const cw = pw - i - o, ch = ph - t - b;
+    const ct = st.cutTop || 0, cb = st.cutBottom || 0, co = st.cutOuter || 0;
+    if (cw <= 0 || ch <= 0) return null;
+    if (keep === "tb") {
+      const s = (H - st.top - st.bottom - ct - cb) / ch;
+      return s > 0 ? { cutOuter: W / 2 - st.gutter - st.outer - cw * s } : null;
+    }
+    const s = (W / 2 - st.gutter - st.outer - co) / cw;
+    return s > 0 ? { cutTB: (H - st.top - st.bottom - ch * s) / 2 } : null;
+  }
+
   // ---------- building the PDF ----------
 
   // doc: source PDFDocument. meas: detectInk results per page, or null.
@@ -290,6 +309,6 @@
     return { tight, rec, outliers };
   }
 
-  return { PAPERS, SIDES, roundUp4, commonSize, signatureOptions, signatureOrder, isRecto, visibleSize,
+  return { PAPERS, SIDES, roundUp4, commonSize, balanceCut, signatureOptions, signatureOrder, isRecto, visibleSize,
            layout, build, detectInk, recommend };
 });
