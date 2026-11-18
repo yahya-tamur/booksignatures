@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book signatures</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+<aside id="settings">
+  <header>
+    <h1>Book signatures</h1>
+    <p class="muted">Lays out a PDF for printing and folding into signatures. Your PDF stays on your computer.</p>
+  </header>
+
+  <section>
+    <h2>Paper</h2>
+    <div class="grid2">
+      <label>Units
+        <select id="unit">
+          <option value="pt">Points</option>
+          <option value="mm">mm</option>
+          <option value="in">Inches</option>
+        </select>
+      </label>
+      <label>Sheet
+        <select id="paper">
+          <option value="letter-l">Letter</option>
+          <option value="a4-l">A4</option>
+          <option value="legal-l">Legal</option>
+          <option value="tabloid-l">Tabloid</option>
+          <option value="a3-l">A3</option>
+          <option value="custom">Custom</option>
+          <option value="fit">Pages at 100%</option>
+        </select>
+      </label>
+    </div>
+    <div class="grid2" id="custom-size" hidden>
+      <label>Width<input type="number" step="any" data-len id="paper-w" value="792"></label>
+      <label>Height<input type="number" step="any" data-len id="paper-h" value="612"></label>
+    </div>
+  </section>
+
+  <section>
+    <label class="file">
+      <input type="file" id="file" accept="application/pdf,.pdf">
+      <span id="file-label">Choose a PDF or drop it here</span>
+    </label>
+    <p id="info" class="muted"></p>
+    <p id="warn" class="warn" hidden></p>
+  </section>
+
+  <section id="sig-section">
+    <h2>Signatures</h2>
+    <div class="stepper">
+      <button class="secondary" id="minus4" aria-label="4 fewer pages">−4</button>
+      <span><b id="total">–</b> pages</span>
+      <button class="secondary" id="plus4" aria-label="4 more pages">+4</button>
+    </div>
+    <p id="blanks" class="muted"></p>
+    <label class="inline">Blank pages at the start <input type="number" id="pad" min="0" value="0"></label>
+    <table id="sig-table">
+      <thead><tr><th>Signatures</th><th>Sheets each</th><th>Pages each</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p id="sig-hint" class="muted" hidden></p>
+  </section>
+
+  <section>
+    <h2>Trim</h2>
+    <p class="muted">Cuts off the PDF's own margins. Inner is the side at the fold.</p>
+    <button id="detect" class="secondary" disabled>Detect margins</button>
+    <p id="detect-status" class="muted"></p>
+    <div id="detect-result" class="result" hidden></div>
+    <p id="parity" class="warn" hidden></p>
+    <div class="grid2">
+      <label>Top<input type="number" step="any" data-len id="trim-top" value="0"></label>
+      <label>Bottom<input type="number" step="any" data-len id="trim-bottom" value="0"></label>
+      <label>Inner<input type="number" step="any" data-len id="trim-inner" value="0"></label>
+      <label>Outer<input type="number" step="any" data-len id="trim-outer" value="0"></label>
+    </div>
+    <label class="check"><input type="checkbox" id="extend" checked> Let lines that stick out run into the margin</label>
+  </section>
+
+  <section>
+    <h2>Margins</h2>
+    <p class="muted">Space around each page on the sheet. Gutter is at the fold.</p>
+    <div class="grid2">
+      <label>Gutter<input type="number" step="any" data-len id="gutter" value="18"></label>
+      <label>Outer<input type="number" step="any" data-len id="outer" value="18"></label>
+      <label>Top<input type="number" step="any" data-len id="top" value="18"></label>
+      <label>Bottom<input type="number" step="any" data-len id="bottom" value="18"></label>
+    </div>
+    <p id="layout" class="muted"></p>
+  </section>
+
+  <section class="actions">
+    <button id="download" disabled>Download PDF</button>
+  </section>
+</aside>
+
+<main id="preview">
+  <div id="empty">Choose a PDF to see it laid out here.</div>
+  <iframe id="frame" title="Laid-out PDF" hidden></iframe>
+</main>
+
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
