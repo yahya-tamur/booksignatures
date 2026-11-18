@@ -56,19 +56,3 @@ After being folded:
 ```
 
 You may have to flip on the long edge or the short edge while printing.
-
------
-
-To run the web page locally:
-
-```bash
-python3 -m http.server -d web -b 127.0.0.1 8017
-```
-
-then open http://127.0.0.1:8017/. Every push to main that changes `web/` publishes
-it to GitHub Pages (`.github/workflows/pages.yml`).
-
-`test/make_long_line_pdf.py` makes a test PDF with 1 inch margins and one line
-that runs off the edge of page 7.
-
-------
