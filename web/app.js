@@ -105,7 +105,8 @@ async function measurePages() {
     canvas.width = W; canvas.height = H;
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, W, H);
-    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    // "print" draws without requestAnimationFrame, which stops in background tabs
+    await page.render({ canvasContext: ctx, viewport: vp, intent: "print" }).promise;
     page.cleanup();
     const px = ctx.getImageData(0, 0, W, H).data;
     const lum = new Uint8Array(W * H);
@@ -146,7 +147,7 @@ async function detect() {
   try {
     src.meas = await measurePages();
     src.detectParity = sig.padStart % 2;
-    detected = C.recommend(src.meas, sig.padStart);
+    detected = C.recommend(src.meas, sig.padStart, C.commonSize(src.doc));
     $("detect-status").textContent = detected ? "" : "Every page is blank.";
     if (detected) setTrims(detected.rec);
     showDetected();
@@ -210,7 +211,11 @@ async function loadFile(file) {
     const doc = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
     const n = doc.getPageCount();
     if (!n) throw new Error("it has no pages");
-    const [w, h] = C.visibleSize(doc.getPage(0));
+    if (doc.isEncrypted) {
+      throw new Error("it's encrypted, which this page can't read (even when it opens without a password). " +
+        "Remove the encryption first, for example with: qpdf --decrypt in.pdf out.pdf");
+    }
+    const [w, h] = C.commonSize(doc);
     src = { bytes, doc, n, w, h, name: file.name.replace(/\.pdf$/i, ""), meas: null };
     sig = { padAuto: true };
     setTotal(C.roundUp4(n));
@@ -218,9 +223,8 @@ async function loadFile(file) {
     $("info").textContent = `${n} pages, ${show(w)} × ${show(h)} ${unit}`;
     $("detect").disabled = false;
     const warns = [];
-    if (doc.isEncrypted) warns.push("This PDF is encrypted; the result may come out blank.");
     const sizes = new Set(doc.getPages().map((p) => C.visibleSize(p).map((v) => v.toFixed(0)).join("×")));
-    if (sizes.size > 1) warns.push(`Pages come in ${sizes.size} sizes; the layout uses the first page's.`);
+    if (sizes.size > 1) warns.push(`Pages come in ${sizes.size} sizes. The layout uses the most common one; larger pages are shrunk to fit.`);
     if (warns.length) { $("warn").textContent = warns.join(" "); $("warn").hidden = false; }
     update();
   } catch (e) {

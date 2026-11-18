@@ -60,6 +60,20 @@
     return pageRotation(page) % 180 ? [cb.height, cb.width] : [cb.width, cb.height];
   }
 
+  // The most common visible page size (scans often add a cover page of another size).
+  function commonSize(doc) {
+    const count = new Map();
+    let best = null;
+    for (const p of doc.getPages()) {
+      const [w, h] = visibleSize(p), key = `${Math.round(w)}x${Math.round(h)}`;
+      const c = count.get(key) || { n: 0, w, h };
+      c.n++; count.set(key, c);
+      if (!best || c.n > best.n) best = c;
+    }
+    return [best.w, best.h];
+  }
+  const sameSize = (w, h, size) => Math.abs(w - size[0]) < 2 && Math.abs(h - size[1]) < 2;
+
   // Trims on the visible page -> trims on the unrotated page.
   function unrotateTrims(rot, t, b, l, r) {
     switch (rot) {
@@ -103,7 +117,7 @@
   // st: layout settings plus { total, padStart, sheetsPer, extend }.
   async function build(doc, meas, st) {
     const n = doc.getPageCount();
-    const [pw, ph] = visibleSize(doc.getPage(0));
+    const [pw, ph] = commonSize(doc);
     const L = layout(pw, ph, st);
     if (L.error) return { error: L.error };
     const order = signatureOrder(n, st.padStart, st.total, st.sheetsPer);
@@ -121,18 +135,21 @@
         const rot = pageRotation(page);
         const [vw, vh] = visibleSize(page);
         const tv = { t, b, l: recto ? inner : outer, r: recto ? outer : inner };
-        const bw = (vw - tv.l - tv.r) * L.scale, bh = (vh - tv.t - tv.b) * L.scale;
-        if (bw <= 0 || bh <= 0) continue;
+        const cw = vw - tv.l - tv.r, ch = vh - tv.t - tv.b;
+        if (cw <= 0 || ch <= 0) continue;
+        // pages larger than the common size are shrunk to fit their slot
+        const ps = Math.min(L.scale, L.sw / cw, L.sh / ch);
+        const bw = cw * ps, bh = ch * ps;
         let X = slotX + (L.sw - bw) / 2, Y = L.y + (L.sh - bh) / 2, dw = bw, dh = bh;
 
         // Ink past the trim runs into the margin, up to the paper edge or the fold.
         const ink = st.extend && meas && meas[pno] && meas[pno].ink;
         if (ink) {
           const avail = {
-            l: (recto ? X - L.W / 2 : X) / L.scale,
-            r: (recto ? L.W - (X + bw) : L.W / 2 - (X + bw)) / L.scale,
-            t: (L.H - (Y + bh)) / L.scale,
-            b: Y / L.scale,
+            l: (recto ? X - L.W / 2 : X) / ps,
+            r: (recto ? L.W - (X + bw) : L.W / 2 - (X + bw)) / ps,
+            t: (L.H - (Y + bh)) / ps,
+            b: Y / ps,
           };
           const ext = {};
           for (const s of ["t", "b", "l", "r"]) {
@@ -142,13 +159,13 @@
             if (want - ext[s] > 0.5 && ink[s] < tv[s]) cut.add(pno + 1);
             tv[s] -= ext[s];
           }
-          X -= ext.l * L.scale; Y -= ext.b * L.scale;
-          dw += (ext.l + ext.r) * L.scale; dh += (ext.t + ext.b) * L.scale;
+          X -= ext.l * ps; Y -= ext.b * ps;
+          dw += (ext.l + ext.r) * ps; dh += (ext.t + ext.b) * ps;
         }
 
         const u = unrotateTrims(rot, tv.t, tv.b, tv.l, tv.r);
         const clip = { left: cb.x + u.L, bottom: cb.y + u.B, right: cb.x + cb.width - u.R, top: cb.y + cb.height - u.T };
-        slots.push({ j, pno, rot, clip, X, Y, dw, dh });
+        slots.push({ j, pno, rot, clip, X, Y, dw, dh, ps });
       }
     }
     // One embedPages call, so fonts and images are shared instead of copied per page.
@@ -158,8 +175,8 @@
     for (let j = 0; j < order.length; j += 2) {
       const sheet = out.addPage([L.W, L.H]);
       for (; k < slots.length && slots[k].j === j; k++) {
-        const { rot, clip, X, Y, dw, dh } = slots[k];
-        const fw = (clip.right - clip.left) * L.scale, fh = (clip.top - clip.bottom) * L.scale;
+        const { rot, clip, X, Y, dw, dh, ps } = slots[k];
+        const fw = (clip.right - clip.left) * ps, fh = (clip.top - clip.bottom) * ps;
         const at = { 0: [X, Y, 0], 90: [X, Y + dh, -90], 180: [X + dw, Y + dh, 180], 270: [X + dw, Y, 90] }[rot] || [X, Y, 0];
         sheet.drawPage(forms[k], { x: at[0], y: at[1], width: fw, height: fh, rotate: degrees(at[2]) });
       }
@@ -224,8 +241,9 @@
 
   // Trims that cut nothing ("tight"), and larger ones that cut only a few
   // lines on a few pages ("rec"), with those pages listed.
-  function recommend(meas, padStart) {
-    const pages = meas.map((m, pno) => ({ m, pno, recto: isRecto(pno, padStart) })).filter((p) => p.m && p.m.ink);
+  function recommend(meas, padStart, size) {
+    const pages = meas.map((m, pno) => ({ m, pno, recto: isRecto(pno, padStart) }))
+      .filter((p) => p.m && p.m.ink && (!size || sameSize(p.m.wPt, p.m.hPt, size)));
     if (!pages.length) return null;
     const maxPages = Math.max(2, Math.round(pages.length * 0.03));
     const trim = (d) => Math.max(0, Math.floor((d - PAD) * 2) / 2);
@@ -253,6 +271,6 @@
     return { tight, rec, outliers };
   }
 
-  return { PAPERS, SIDES, roundUp4, signatureOptions, signatureOrder, isRecto, visibleSize,
+  return { PAPERS, SIDES, roundUp4, commonSize, signatureOptions, signatureOrder, isRecto, visibleSize,
            layout, build, detectInk, recommend };
 });
