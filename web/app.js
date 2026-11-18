@@ -20,7 +20,7 @@ let sig = null;      // { total, padStart, padAuto, sheetsPer }
 let wantSheets = 5;  // preferred sheets per signature
 let unit = "pt";
 let detected = null;
-let pdfUrl = null, outBytes = null, timer = null, runId = 0;
+let pdfUrl = null, outBytes = null, timer = null, runId = 0;   // outBytes: the download (no outline)
 
 // ---------- settings ----------
 
@@ -51,7 +51,8 @@ function settings() {
     trim: { t: len("trim-top"), b: len("trim-bottom"), i: len("trim-inner"), o: len("trim-outer") },
     paper: $("paper").value, paperW: len("paper-w"), paperH: len("paper-h"),
     gutter: len("gutter"), outer: len("outer"), top: len("top"), bottom: len("bottom"),
-    extend: $("extend").checked,
+    cutTop: len("cut-top"), cutBottom: len("cut-bottom"), cutOuter: len("cut-outer"),
+    extend: $("extend").checked, outline: true,
     ...sig,
   };
 }
@@ -186,6 +187,7 @@ async function update() {
   const size = pct === 100 ? "Pages are printed at full size."
     : pct < 100 ? `Pages are shrunk to ${pct}% of their size to fit the sheet.`
     : `Pages are enlarged to ${pct}% of their size to fill the sheet.`;
+  $("final").innerHTML = `Finished book pages: <b>${show(L.finalW)} × ${show(L.finalH)} ${unit}</b>`;
   let text = `${sheets} sheets of ${show(L.W)} × ${show(L.H)} ${unit}, printed on both sides. ${size}`;
   if (res.cut.length) text += ` Not enough room for the long lines on page${res.cut.length > 1 ? "s" : ""} ${res.cut.join(", ")}.`;
   $("layout").className = "muted";
@@ -193,7 +195,7 @@ async function update() {
 
   outBytes = res.bytes;
   if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-  pdfUrl = URL.createObjectURL(new Blob([outBytes], { type: "application/pdf" }));
+  pdfUrl = URL.createObjectURL(new Blob([res.preview || res.bytes], { type: "application/pdf" }));
   $("frame").src = pdfUrl;
   $("frame").hidden = false;
   $("empty").hidden = true;
@@ -293,10 +295,12 @@ document.querySelectorAll("#settings input[data-len], #settings input[type=check
   el.addEventListener("input", schedule));
 $("download").addEventListener("click", () => {
   if (!outBytes) return;
+  const url = URL.createObjectURL(new Blob([outBytes], { type: "application/pdf" }));
   const a = document.createElement("a");
-  a.href = pdfUrl;
+  a.href = url;
   a.download = `${src.name}_signatures.pdf`;
   a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 });
 window.addEventListener("dragover", (e) => { e.preventDefault(); document.body.classList.add("dragging"); });
 window.addEventListener("dragleave", () => document.body.classList.remove("dragging"));

@@ -5,7 +5,7 @@
   else root.BookCore = factory(root.PDFLib);
 })(this, function (PDFLib) {
   "use strict";
-  const { PDFDocument, degrees } = PDFLib;
+  const { PDFDocument, degrees, rgb } = PDFLib;
 
   const PAPERS = {
     "letter-l": [792, 612],
@@ -85,29 +85,35 @@
   }
 
   // Sheet size, scale and the two page slots. st: { trim, paper, paperW,
-  // paperH, gutter, outer, top, bottom }.
+  // paperH, gutter, outer, top, bottom, cutTop, cutBottom, cutOuter }.
+  // The cuts are paper removed from the finished text block; margins are
+  // measured from the cut edge.
   function layout(pw, ph, st) {
     const { t, b, i, o } = st.trim;
+    const ct = st.cutTop || 0, cb = st.cutBottom || 0, co = st.cutOuter || 0;
+    const outer = st.outer + co, top = st.top + ct, bottom = st.bottom + cb;
     const cw = pw - i - o, ch = ph - t - b;
     if (cw <= 0 || ch <= 0) return { error: "The trim removes the whole page." };
     let W, H, scale;
     if (st.paper === "fit") {
       scale = 1;
-      W = 2 * (st.outer + cw + st.gutter);
-      H = st.top + ch + st.bottom;
+      W = 2 * (outer + cw + st.gutter);
+      H = top + ch + bottom;
     } else {
       [W, H] = st.paper === "custom" ? [st.paperW, st.paperH] : PAPERS[st.paper];
-      const aw = W / 2 - st.gutter - st.outer, ah = H - st.top - st.bottom;
+      const aw = W / 2 - st.gutter - outer, ah = H - top - bottom;
       if (aw <= 0 || ah <= 0) return { error: "The margins leave no room on the paper." };
       scale = Math.min(aw / cw, ah / ch);
     }
+    const finalW = W / 2 - co, finalH = H - ct - cb;
+    if (finalW <= 0 || finalH <= 0) return { error: "The cut removes the whole page." };
     const sw = cw * scale, sh = ch * scale;
-    const free = W / 2 - st.gutter - st.outer - sw;
+    const free = W / 2 - st.gutter - outer - sw;
     return {
-      W, H, scale, sw, sh,
-      leftX: st.outer + free / 2,
+      W, H, scale, sw, sh, ct, cb, co, finalW, finalH,
+      leftX: outer + free / 2,
       rightX: W / 2 + st.gutter + free / 2,
-      y: st.bottom + (H - st.top - st.bottom - sh) / 2,
+      y: bottom + (H - top - bottom - sh) / 2,
     };
   }
 
@@ -142,14 +148,14 @@
         const bw = cw * ps, bh = ch * ps;
         let X = slotX + (L.sw - bw) / 2, Y = L.y + (L.sh - bh) / 2, dw = bw, dh = bh;
 
-        // Ink past the trim runs into the margin, up to the paper edge or the fold.
+        // Ink past the trim runs into the margin, up to the cut (or paper edge) or the fold.
         const ink = st.extend && meas && meas[pno] && meas[pno].ink;
         if (ink) {
           const avail = {
-            l: (recto ? X - L.W / 2 : X) / ps,
-            r: (recto ? L.W - (X + bw) : L.W / 2 - (X + bw)) / ps,
-            t: (L.H - (Y + bh)) / ps,
-            b: Y / ps,
+            l: (recto ? X - L.W / 2 : X - L.co) / ps,
+            r: (recto ? L.W - L.co - (X + bw) : L.W / 2 - (X + bw)) / ps,
+            t: (L.H - L.ct - (Y + bh)) / ps,
+            b: (Y - L.cb) / ps,
           };
           const ext = {};
           for (const s of ["t", "b", "l", "r"]) {
@@ -182,7 +188,20 @@
       }
     }
     const bytes = await out.save();
-    return { bytes, L, extended: [...extended].sort((a, b) => a - b), cut: [...cut].sort((a, b) => a - b) };
+
+    // Preview only: outline in red what remains of each page after the cut.
+    let preview = null;
+    if (st.outline && (L.ct || L.cb || L.co)) {
+      // drawn on a copy: pdf-lib ignores drawing on most pages after a save
+      const copy = await PDFDocument.load(bytes);
+      const box = { borderColor: rgb(0.9, 0, 0), borderWidth: 0.75, y: L.cb, width: L.finalW, height: L.finalH };
+      for (const sheet of copy.getPages()) {
+        sheet.drawRectangle({ ...box, x: L.co });
+        sheet.drawRectangle({ ...box, x: L.W / 2 });
+      }
+      preview = await copy.save();
+    }
+    return { bytes, preview, L, extended: [...extended].sort((a, b) => a - b), cut: [...cut].sort((a, b) => a - b) };
   }
 
   // ---------- margin detection ----------
