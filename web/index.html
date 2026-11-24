@@ -61,11 +61,14 @@
     </div>
     <p id="blanks" class="muted"></p>
     <label class="inline">Blank pages at the start <input type="number" id="pad" min="0" value="0"></label>
+    <label class="inline">Reduce sheets in the first and last signatures by <input type="number" id="reduce" min="0" value="0"></label>
+    <p id="reduce-note" class="warn" hidden></p>
     <table id="sig-table">
-      <thead><tr><th>Signatures</th><th>Sheets each</th><th>Pages each</th></tr></thead>
+      <thead><tr><th>Sheets each</th><th>First &amp; last sheets</th><th>Signatures</th></tr></thead>
       <tbody></tbody>
     </table>
     <p id="sig-hint" class="muted" hidden></p>
+    <button id="update-pdf" disabled>Update PDF</button>
   </section>
 
   <section>
@@ -86,7 +89,7 @@
 
   <section>
     <h2>Margins</h2>
-    <p class="muted">Space around each page. Gutter is at the fold. Pages are scaled to fit, so one direction usually has space left over, added evenly to its two margins.</p>
+    <p class="muted">Space around each page. Gutter is at the fold. Pages are scaled to fit the sheet, and the space left over is cut off after binding (below).</p>
     <div class="grid2">
       <label>Gutter<input type="number" step="any" data-len id="gutter" value="18"></label>
       <label>Outer<input type="number" step="any" data-len id="outer" value="18"></label>
@@ -97,15 +100,10 @@
 
   <section>
     <h2>Cut after binding</h2>
-    <p class="muted">Paper cut off the finished text block, for a smaller book. Margins are measured from the cut. The red outline in the preview shows what's left; it isn't in the download.</p>
+    <p class="muted">Paper cut off the finished text block, for a smaller book. Margins are measured from the cut. Set either cut and the other follows, so exactly the leftover space is cut off and the finished pages have the margins above. The red outline in the preview shows what's left; it isn't in the download.</p>
     <div class="grid2">
       <label>Top and bottom (each)<input type="number" step="any" data-len id="cut-tb" value="0"></label>
       <label>Outer<input type="number" step="any" data-len id="cut-outer" value="0"></label>
-    </div>
-    <p class="muted">These buttons cut off the leftover space, so the finished pages have exactly the margins above.</p>
-    <div class="btns">
-      <button class="secondary" id="fit-outer" disabled>Set outer from top and bottom</button>
-      <button class="secondary" id="fit-tb" disabled>Set top and bottom from outer</button>
     </div>
     <p id="balance-note" class="muted" hidden></p>
     <p id="final" class="final"></p>

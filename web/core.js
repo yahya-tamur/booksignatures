@@ -22,27 +22,41 @@
 
   const roundUp4 = (n) => Math.ceil(n / 4) * 4;
 
-  // Ways to split `total` pages into equal signatures.
-  function signatureOptions(total) {
-    const sheets = total / 4, opts = [];
-    for (let sigs = 1; sigs <= sheets; sigs++) {
-      if (sheets % sigs === 0) opts.push({ sigs, sheetsPer: sheets / sigs, pagesPer: total / sigs });
+  // Ways to split `total` pages into signatures of `sheetsPer` sheets, with
+  // the first and last signatures `reduce` sheets smaller. With a reduction
+  // there is at least one full signature between them.
+  function signatureOptions(total, reduce = 0) {
+    const full = total / 4 + 2 * reduce, opts = [];   // sheets if the ends were full size
+    for (let sigs = reduce ? 3 : 1; sigs <= full; sigs++) {
+      if (full % sigs) continue;
+      const sheetsPer = full / sigs;
+      if (sheetsPer <= reduce) break;
+      opts.push({ sigs, sheetsPer, endSheets: sheetsPer - reduce });
     }
     return opts;
   }
 
+  // Sheets in each signature, first to last.
+  function signatureSizes(total, sheetsPer, reduce = 0) {
+    const sizes = Array((total / 4 + 2 * reduce) / sheetsPer).fill(sheetsPer);
+    sizes[0] -= reduce;
+    sizes[sizes.length - 1] -= reduce;
+    return sizes;
+  }
+
   // Source page indices in print order (null = blank); 2j and 2j+1 are the
-  // left and right halves of output page j.
-  function signatureOrder(n, padStart, total, sheetsPer) {
-    const stack = 4 * sheetsPer;
+  // left and right halves of output page j. sizes: sheets per signature.
+  function signatureOrder(n, padStart, total, sizes) {
     const padded = [...Array(padStart).fill(null), ...Array.from({ length: n }, (_, i) => i),
                     ...Array(total - n - padStart).fill(null)];
     const order = [];
-    for (let s = 0; s < total; s += stack) {
-      const p = padded.slice(s, s + stack);
-      for (let i = 0; i < sheetsPer; i++) {
+    let s = 0;
+    for (const sheets of sizes) {
+      const stack = 4 * sheets, p = padded.slice(s, s + stack);
+      for (let i = 0; i < sheets; i++) {
         order.push(p[stack - 1 - 2 * i], p[2 * i], p[2 * i + 1], p[stack - 2 - 2 * i]);
       }
+      s += stack;
     }
     return order;
   }
@@ -139,13 +153,13 @@
   // ---------- building the PDF ----------
 
   // doc: source PDFDocument. meas: detectInk results per page, or null.
-  // st: layout settings plus { total, padStart, sheetsPer, extend }.
+  // st: layout settings plus { total, padStart, sheetsPer, reduce, extend }.
   async function build(doc, meas, st) {
     const n = doc.getPageCount();
     const [pw, ph] = commonSize(doc);
     const L = layout(pw, ph, st);
     if (L.error) return { error: L.error };
-    const order = signatureOrder(n, st.padStart, st.total, st.sheetsPer);
+    const order = signatureOrder(n, st.padStart, st.total, signatureSizes(st.total, st.sheetsPer, st.reduce || 0));
     const out = await PDFDocument.create();
     const { t, b, i: inner, o: outer } = st.trim;
     const extended = new Set(), cut = new Set();
@@ -309,6 +323,6 @@
     return { tight, rec, outliers };
   }
 
-  return { PAPERS, SIDES, roundUp4, commonSize, balanceCut, signatureOptions, signatureOrder, isRecto, visibleSize,
+  return { PAPERS, SIDES, roundUp4, commonSize, balanceCut, signatureOptions, signatureSizes, signatureOrder, isRecto, visibleSize,
            layout, build, detectInk, recommend };
 });

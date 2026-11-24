@@ -16,11 +16,16 @@ const $ = (id) => document.getElementById(id);
 const lenIds = [...document.querySelectorAll("[data-len]")].map((el) => el.id);
 
 let src = null;      // { bytes, doc, name, n, w, h, meas, detectParity }
-let sig = null;      // { total, padStart, padAuto, sheetsPer }
+let sig = null;      // { total, padStart, padAuto, sheetsPer, reduce (sheets) }
 let wantSheets = 5;  // preferred sheets per signature
+let cutKeep = "tb";  // the cut last set by hand; the other follows it
+let wantReduce = 0;  // sheets fewer in the first and last signature
 let unit = "pt";
 let detected = null;
 let pdfUrl = null, outBytes = null, timer = null, runId = 0;   // outBytes: the download (no outline)
+let builtSig = null;   // the signature settings the current PDF was built with
+const sigKey = () => sig && JSON.stringify([sig.total, sig.padStart, sig.sheetsPer, sig.reduce]);
+const sigDirty = () => !!src && sigKey() !== builtSig;
 
 // ---------- settings ----------
 
@@ -30,7 +35,7 @@ const fmt = (v) => String(+v.toFixed(unit === "in" ? 3 : 1));
 const show = (pt) => fmt(pt / UNIT[unit]);
 
 function save() {
-  const s = { unit, wantSheets };
+  const s = { unit, wantSheets, reduceSheets: wantReduce, cutKeep };
   for (const id of lenIds) s[id] = $(id).value;
   for (const id of KEEP) s[id] = $(id).type === "checkbox" ? $(id).checked : $(id).value;
   try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) { /* no storage */ }
@@ -44,6 +49,9 @@ function restore() {
   for (const id of lenIds) if (s[id] != null) $(id).value = s[id];
   for (const id of KEEP) if (s[id] != null) $(id)[$(id).type === "checkbox" ? "checked" : "value"] = s[id];
   if (s.wantSheets) wantSheets = s.wantSheets;
+  if (s.reduceSheets) wantReduce = s.reduceSheets;
+  if (s.cutKeep === "tb" || s.cutKeep === "outer") cutKeep = s.cutKeep;
+  $("reduce").value = wantReduce;
 }
 
 function settings() {
@@ -60,7 +68,7 @@ function settings() {
 // ---------- signatures ----------
 
 function pickSheets(total) {
-  const opts = C.signatureOptions(total);
+  const opts = C.signatureOptions(total, sig.reduce);
   return opts.reduce((a, b) => (Math.abs(b.sheetsPer - wantSheets) < Math.abs(a.sheetsPer - wantSheets) ? b : a)).sheetsPer;
 }
 
@@ -68,7 +76,15 @@ function setTotal(total) {
   const blanks = total - src.n;
   if (sig.padAuto || sig.padStart > blanks) { sig.padStart = Math.floor(blanks / 2); sig.padAuto = true; }
   sig.total = total;
-  sig.sheetsPer = pickSheets(total);
+  setReduce();
+}
+
+// The largest reduction up to the one asked for that these pages allow.
+function setReduce() {
+  let r = wantReduce;
+  while (r > 0 && !C.signatureOptions(sig.total, r).length) r--;
+  sig.reduce = r;
+  sig.sheetsPer = pickSheets(sig.total);
 }
 
 function showSignatures() {
@@ -82,12 +98,38 @@ function showSignatures() {
     : `${src.n} pages, no blank pages.`;
   $("pad").max = blanks;
   $("pad").value = sig.padStart;
-  const opts = C.signatureOptions(sig.total), sheets = sig.total / 4;
-  $("sig-hint").hidden = !(opts.length === 2 && sheets > 3);
+  const r = sig.reduce, opts = C.signatureOptions(sig.total, r), sheets = sig.total / 4;
+  $("sig-hint").hidden = !(!r && opts.length === 2 && sheets > 3);
   $("sig-hint").textContent = `${sheets} sheets only split as 1 signature or ${sheets} single sheets. Try −4 or +4.`;
+  $("reduce-note").hidden = r === wantReduce;
+  if (r !== wantReduce) {
+    const s = (k) => `${k} sheet${k === 1 ? "" : "s"}`;
+    let text = `With ${sig.total} pages, the first and last signatures can't be ${s(wantReduce)} smaller than the others` +
+      (r ? `, so they're ${s(r)} smaller.` : ", so they're the same size.");
+    const near = nearestTotalFor(wantReduce);
+    if (near) text += ` ${near} pages would allow ${wantReduce}.`;
+    $("reduce-note").textContent = text;
+  }
   tbody.innerHTML = opts.map((o) =>
     `<tr data-s="${o.sheetsPer}" class="${o.sheetsPer === sig.sheetsPer ? "sel" : ""}">` +
-    `<td>${o.sigs}</td><td>${o.sheetsPer}</td><td>${o.pagesPer}</td></tr>`).join("");
+    `<td>${o.sheetsPer}</td><td>${o.endSheets}</td><td>${o.sigs}</td></tr>`).join("");
+  $("update-pdf").disabled = !sigDirty();
+}
+
+// The page count closest to the current one that allows this reduction (fewer pages only down to the PDF's own).
+function nearestTotalFor(reduce) {
+  for (let d = 4; d <= 400; d += 4) {
+    for (const t of [sig.total + d, sig.total - d]) {
+      if (t >= src.n && C.signatureOptions(t, reduce).length) return t;
+    }
+  }
+  return null;
+}
+
+// Signature changes are only listed until "Update PDF": the preview says little about them.
+function sigChanged() {
+  save();
+  showSignatures();
 }
 
 // ---------- margin detection ----------
@@ -161,7 +203,9 @@ async function detect() {
 
 // ---------- output ----------
 
-function schedule() {
+// sync: also re-set the cuts (anything but the cut fields can change the leftover space)
+function schedule(sync = true) {
+  if (sync) syncCuts();
   save();
   showSignatures();
   clearTimeout(timer);
@@ -170,11 +214,9 @@ function schedule() {
 
 async function update() {
   $("custom-size").hidden = $("paper").value !== "custom";
-  const canBalance = !!src && $("paper").value !== "fit";
-  $("fit-outer").disabled = $("fit-tb").disabled = !canBalance;
   showSignatures();
   if (!src) return;
-  const id = ++runId;
+  const id = ++runId, key = sigKey();
   let res;
   try { res = await C.build(src.doc, src.meas, settings()); }
   catch (e) { res = { error: "Couldn't lay out this PDF: " + e.message }; }
@@ -195,6 +237,8 @@ async function update() {
   $("layout").className = "muted";
   $("layout").textContent = text;
 
+  builtSig = key;
+  $("update-pdf").disabled = !sigDirty();
   outBytes = res.bytes;
   if (pdfUrl) URL.revokeObjectURL(pdfUrl);
   pdfUrl = URL.createObjectURL(new Blob([res.preview || res.bytes], { type: "application/pdf" }));
@@ -230,6 +274,8 @@ async function loadFile(file) {
     const sizes = new Set(doc.getPages().map((p) => C.visibleSize(p).map((v) => v.toFixed(0)).join("×")));
     if (sizes.size > 1) warns.push(`Pages come in ${sizes.size} sizes. The layout uses the most common one; larger pages are shrunk to fit.`);
     if (warns.length) { $("warn").textContent = warns.join(" "); $("warn").hidden = false; }
+    syncCuts();
+    builtSig = sigKey();   // the first build uses these
     update();
   } catch (e) {
     src = null;
@@ -260,12 +306,13 @@ for (const input of document.querySelectorAll("#settings input[type=number]")) {
     const b = document.createElement("button");
     b.type = "button"; b.className = "step"; b.textContent = text; b.setAttribute("aria-label", label);
     b.addEventListener("click", () => {
-      const step = isLen ? STEP[unit] : 1;
+      const step = isLen ? STEP[unit] : (+input.step || 1);
       let v = Math.round(((parseFloat(input.value) || 0) + d * step) / step) * step;
       if (input.min !== "") v = Math.max(+input.min, v);
       if (input.max !== "") v = Math.min(+input.max, v);
       input.value = isLen ? fmt(v) : String(v);
       input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
     });
     return b;
   };
@@ -274,55 +321,70 @@ for (const input of document.querySelectorAll("#settings input[type=number]")) {
 
 // ---------- margin buttons ----------
 
-function balance(keep) {
-  if (!src) return;
-  const r = C.balanceCut(...C.commonSize(src.doc), settings(), keep);
+// ---------- cut after binding ----------
+
+// Sets the other cut from the one in cutKeep so that the cuts remove exactly
+// the leftover space. If the kept cut is too small for that, it is raised
+// (raise) or a note says how far.
+function syncCuts(raise = true) {
   const note = $("balance-note");
   note.hidden = true;
-  if (!r) {
-    note.textContent = "The margins and the other cut leave no room for the page.";
-    note.hidden = false;
-    return;
-  }
-  const [key, v] = Object.entries(r)[0];
-  const id = key === "cutOuter" ? "cut-outer" : "cut-tb";
-  $(id).value = show(Math.max(0, v));
-  if (v < 0) {
-    note.textContent = key === "cutOuter"
-      ? "No outer cut needed: the width is what limits the page. Try setting top and bottom from outer."
-      : "No top and bottom cut needed: the height is what limits the page. Try setting outer from top and bottom.";
-    note.hidden = false;
-  }
-  schedule();
+  if (!src || $("paper").value === "fit") return;
+  const size = C.commonSize(src.doc), other = cutKeep === "tb" ? "outer" : "tb";
+  const ID = { tb: "cut-tb", outer: "cut-outer" };
+  const cut = (keep) => { const r = C.balanceCut(...size, settings(), keep); return r && (keep === "tb" ? r.cutOuter : r.cutTB); };
+  const noRoom = () => { note.textContent = "The margins leave no room for the page."; note.hidden = false; };
+  const v = cut(cutKeep);
+  if (v == null) return noRoom();
+  if (v >= 0) { $(ID[other]).value = show(v); return; }
+  // The leftover space is in the kept cut's direction, and it doesn't cut all of it.
+  $(ID[other]).value = "0";
+  const min = cut(other);
+  if (min == null) return noRoom();
+  if (raise) { $(ID[cutKeep]).value = show(min); return; }
+  note.textContent = `${cutKeep === "tb" ? "Top and bottom" : "Outer"} needs at least ${show(min)} ${unit} to cut off the leftover space.`;
+  note.hidden = false;
 }
-$("fit-outer").addEventListener("click", () => balance("tb"));
-$("fit-tb").addEventListener("click", () => balance("outer"));
+
+for (const [id, keep] of [["cut-tb", "tb"], ["cut-outer", "outer"]]) {
+  // while typing, only note a too-small cut; raise it once the field is left
+  $(id).addEventListener("input", () => { cutKeep = keep; syncCuts(false); schedule(false); });
+  $(id).addEventListener("change", () => { cutKeep = keep; syncCuts(); schedule(false); });
+}
 
 // ---------- events ----------
 
 $("file").addEventListener("change", (e) => loadFile(e.target.files[0]));
 $("unit").addEventListener("change", (e) => setUnit(e.target.value));
 $("detect").addEventListener("click", detect);
-$("plus4").addEventListener("click", () => { if (src) { setTotal(sig.total + 4); schedule(); } });
-$("minus4").addEventListener("click", () => { if (src && sig.total - 4 >= src.n) { setTotal(sig.total - 4); schedule(); } });
+$("plus4").addEventListener("click", () => { if (src) { setTotal(sig.total + 4); sigChanged(); } });
+$("minus4").addEventListener("click", () => { if (src && sig.total - 4 >= src.n) { setTotal(sig.total - 4); sigChanged(); } });
 $("pad").addEventListener("input", () => {
   if (!src) return;
   sig.padStart = Math.max(0, Math.min(sig.total - src.n, Math.round(num("pad"))));
   sig.padAuto = false;
-  schedule();
+  sigChanged();
 });
+$("reduce").addEventListener("input", () => {
+  wantReduce = Math.max(0, Math.round(num("reduce")));
+  if (src) setReduce();
+  sigChanged();
+});
+$("reduce").addEventListener("change", () => { $("reduce").value = wantReduce; });
 $("sig-table").addEventListener("click", (e) => {
   const tr = e.target.closest("tr[data-s]");
-  if (tr && src) { sig.sheetsPer = wantSheets = +tr.dataset.s; schedule(); }
+  if (tr && src) { sig.sheetsPer = wantSheets = +tr.dataset.s; sigChanged(); }
 });
 $("detect-result").addEventListener("click", (e) => {
   const use = e.target.dataset && e.target.dataset.use;
   if (use && detected) setTrims(detected[use]);
 });
-document.querySelectorAll("#settings input[data-len], #settings input[type=checkbox], #paper").forEach((el) =>
-  el.addEventListener("input", schedule));
-$("download").addEventListener("click", () => {
-  if (!outBytes) return;
+document.querySelectorAll("#settings input[data-len]:not([id^=cut-]), #settings input[type=checkbox], #paper").forEach((el) =>
+  el.addEventListener("input", () => schedule()));
+$("update-pdf").addEventListener("click", () => { clearTimeout(timer); update(); });
+$("download").addEventListener("click", async () => {
+  if (sigDirty()) { clearTimeout(timer); await update(); }
+  if (!outBytes || sigDirty()) return;
   const url = URL.createObjectURL(new Blob([outBytes], { type: "application/pdf" }));
   const a = document.createElement("a");
   a.href = url;

@@ -115,6 +115,9 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .num .step:hover { color: var(--text); background: var(--row-sel); }
 .num .step:first-child { border-radius: 6px 0 0 6px; border-right: 0; }
 .num .step:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
-label.inline .num { margin: 0; width: 120px; }
+label.inline .num { margin: 0; width: 120px; flex: none; }
 .final { font-size: 14px; margin: 4px 0 6px; }
 .btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+/* blue while there are signature changes to apply, plain once applied */
+#update-pdf { display: block; width: auto; margin: 16px auto 8px; padding: 8px 22px; border: 1px solid transparent; }
+#update-pdf:disabled { opacity: 1; background: transparent; color: var(--muted); border-color: var(--border); }
