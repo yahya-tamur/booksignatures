@@ -1,5 +1,5 @@
 -----
-Update: I used AI to make a python version 'impose.py' as well as a version on that works in the browser:
+Update: I used AI to make a version that works in the browser:
 
 [https://yahya-tamur.github.io/booksignatures/](https://yahya-tamur.github.io/booksignatures/)
 
